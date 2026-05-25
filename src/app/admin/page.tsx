@@ -279,6 +279,7 @@ export default function AdminPage() {
                           <span className="text-white font-medium text-sm font-mono">{account.email}</span>
                           {account.note && <span className="text-[var(--text-muted)] text-xs bg-white/[.04] px-2 py-0.5 rounded">{account.note}</span>}
                           {isDisabled && <span className="px-2 py-0.5 text-xs rounded-full border border-[rgba(255,45,120,0.3)] bg-[rgba(255,45,120,0.05)] text-[var(--neon-magenta)]">已停用</span>}
+                          <span className="text-[var(--text-muted)] text-xs opacity-50">{account.created_at?.slice(0, 16).replace("T", " ")}</span>
                         </div>
                       )}
                     </div>
@@ -311,10 +312,11 @@ export default function AdminPage() {
                           {cdks.map((cdk) => (
                             <div key={cdk.id} className={`relative rounded-xl p-3 border ${carBgs[idx % carBgs.length]} transition-all group`}>
                               <button onClick={() => handleCopy(cdk.code)}
-                                className="font-mono text-sm font-bold text-[var(--neon-cyan)] hover:text-white transition-all flex items-center gap-1 mb-2">
+                                className="font-mono text-sm font-bold text-[var(--neon-cyan)] hover:text-white transition-all flex items-center gap-1 mb-1">
                                 {cdk.code}
                                 {copiedCode === cdk.code ? <CheckCircle className="w-3.5 h-3.5 text-[var(--neon-lime)]" /> : <Copy className="w-3.5 h-3.5 opacity-40" />}
                               </button>
+                              <p className="text-[var(--text-muted)] text-xs opacity-50 mb-1">{cdk.created_at?.slice(0, 16).replace("T", " ")}</p>
                               {editingCdkId === cdk.id ? (
                                 <div className="flex gap-1 mb-1">
                                   <input value={editCdkName} onChange={(e) => setEditCdkName(e.target.value)} placeholder="微信名"
