@@ -243,7 +243,8 @@ export default function Home() {
         {activeTab === "code" && (
           <>
             {emails.length > 0 && (
-              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(0,240,255,0.2) transparent" }}>
+              <div className="relative">
+                <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(0,240,255,0.2) transparent" }}>
                 {emails.map((item) => {
                   const isExpanded = expandedIds.has(item.emailId);
                   return (
@@ -287,6 +288,7 @@ export default function Home() {
                     </div>
                   );
                 })}
+              </div>
               </div>
             )}
             {email && emails.length === 0 && !loading && (
