@@ -46,6 +46,14 @@ function isWithinMinutes(isoTime: string, minutes: number): boolean {
   return diff <= minutes * 60 * 1000;
 }
 
+function toChinaTime(utcTime: string): string {
+  const d = new Date(utcTime.replace(" ", "T"));
+  if (isNaN(d.getTime())) return utcTime;
+  const china = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${china.getUTCFullYear()}-${pad(china.getUTCMonth() + 1)}-${pad(china.getUTCDate())} ${pad(china.getUTCHours())}:${pad(china.getUTCMinutes())}`;
+}
+
 async function doEmailList(toEmail: string, token: string): Promise<EmailItem[]> {
   const res = await fetch(`${EMAIL_API_BASE}/api/public/emailList`, {
     method: "POST",
@@ -61,10 +69,12 @@ export async function fetchEmails(toEmail: string): Promise<EmailItem[]> {
   const token = await getToken();
 
   try {
-    return await doEmailList(toEmail, token);
+    const emails = await doEmailList(toEmail, token);
+    return emails.map((e) => ({ ...e, createTime: toChinaTime(e.createTime) }));
   } catch {
     cachedToken = null;
     const newToken = await getToken();
-    return await doEmailList(toEmail, newToken);
+    const emails = await doEmailList(toEmail, newToken);
+    return emails.map((e) => ({ ...e, createTime: toChinaTime(e.createTime) }));
   }
 }
