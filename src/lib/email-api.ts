@@ -57,17 +57,14 @@ async function doEmailList(toEmail: string, token: string): Promise<EmailItem[]>
   return data.data || [];
 }
 
-export async function fetchEmails(toEmail: string, withinMinutes = 5): Promise<EmailItem[]> {
+export async function fetchEmails(toEmail: string): Promise<EmailItem[]> {
   const token = await getToken();
 
   try {
-    const emails = await doEmailList(toEmail, token);
-    return emails.filter((e) => isWithinMinutes(e.createTime, withinMinutes));
+    return await doEmailList(toEmail, token);
   } catch {
-    // Token expired, retry once
     cachedToken = null;
     const newToken = await getToken();
-    const emails = await doEmailList(toEmail, newToken);
-    return emails.filter((e) => isWithinMinutes(e.createTime, withinMinutes));
+    return await doEmailList(toEmail, newToken);
   }
 }
