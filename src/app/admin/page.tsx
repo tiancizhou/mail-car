@@ -120,11 +120,17 @@ export default function AdminPage() {
 
   const handleAddAccount = async () => {
     if (!newEmail.trim()) return;
-    await fetch("/api/admin/account", {
+    const res = await fetch("/api/admin/account", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: newEmail.trim(), note: newNote.trim() }),
     });
-    setNewEmail(""); setNewNote(""); setShowAddForm(false); fetchAccounts();
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error || "添加失败");
+      return;
+    }
+    setNewEmail(""); setNewNote(""); setShowAddForm(false);
+    await fetchAccounts();
   };
 
   const handleDeleteAccount = async (id: number) => {
