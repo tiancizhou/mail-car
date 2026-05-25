@@ -179,7 +179,18 @@ export default function AdminPage() {
   };
 
   const handleCopy = async (text: string) => {
-    await navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
     setCopiedCode(text);
     setTimeout(() => setCopiedCode(null), 2000);
   };

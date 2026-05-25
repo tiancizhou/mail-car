@@ -106,7 +106,18 @@ export default function Home() {
   }, [cdk, activeTab]);
 
   const handleCopy = async (code: string, key: string) => {
-    await navigator.clipboard.writeText(code);
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = code;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
     setCopiedId(key);
     setTimeout(() => setCopiedId(null), 2000);
   };
