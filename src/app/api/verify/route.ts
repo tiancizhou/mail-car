@@ -13,6 +13,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const emails = await fetchEmails(cdk.email);
+    console.log("[verify] email:", cdk.email, "fetchCount:", emails.length);
+    if (emails.length > 0) {
+      console.log("[verify] firstEmail:", JSON.stringify({ subject: emails[0].subject, createTime: emails[0].createTime, from: emails[0].sendEmail }));
+    }
 
     if (emails.length > 0) {
       addFetchLog(cdk.account_id, cdk.id, cdk.user_name);
