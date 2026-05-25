@@ -7,6 +7,14 @@ import {
 } from "lucide-react";
 import ParticleField from "@/components/ParticleField";
 
+function fmtTime(utc: string | undefined) {
+  if (!utc) return "";
+  const d = new Date(utc.includes("T") ? utc : utc.replace(" ", "T") + "Z");
+  if (isNaN(d.getTime())) return utc;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface Account {
   id: number;
   email: string;
@@ -279,7 +287,7 @@ export default function AdminPage() {
                           <span className="text-white font-medium text-sm font-mono">{account.email}</span>
                           {account.note && <span className="text-[var(--text-muted)] text-xs bg-white/[.04] px-2 py-0.5 rounded">{account.note}</span>}
                           {isDisabled && <span className="px-2 py-0.5 text-xs rounded-full border border-[rgba(255,45,120,0.3)] bg-[rgba(255,45,120,0.05)] text-[var(--neon-magenta)]">已停用</span>}
-                          <span className="text-[var(--text-muted)] text-xs opacity-50">{account.created_at?.slice(0, 16).replace("T", " ")}</span>
+                          <span className="text-[var(--text-muted)] text-xs opacity-50">{fmtTime(account.created_at)}</span>
                         </div>
                       )}
                     </div>
@@ -316,7 +324,7 @@ export default function AdminPage() {
                                 {cdk.code}
                                 {copiedCode === cdk.code ? <CheckCircle className="w-3.5 h-3.5 text-[var(--neon-lime)]" /> : <Copy className="w-3.5 h-3.5 opacity-40" />}
                               </button>
-                              <p className="text-[var(--text-muted)] text-xs opacity-50 mb-1">{cdk.created_at?.slice(0, 16).replace("T", " ")}</p>
+                              <p className="text-[var(--text-muted)] text-xs opacity-50 mb-1">{fmtTime(cdk.created_at)}</p>
                               {editingCdkId === cdk.id ? (
                                 <div className="flex gap-1 mb-1">
                                   <input value={editCdkName} onChange={(e) => setEditCdkName(e.target.value)} placeholder="微信名"
@@ -370,7 +378,7 @@ export default function AdminPage() {
                                   {logs.map((log) => (
                                     <div key={log.id} className="flex items-center justify-between text-xs">
                                       <span className="text-[var(--text-muted)] flex items-center gap-1">
-                                        <Clock className="w-3 h-3 opacity-40" />{log.created_at}
+                                        <Clock className="w-3 h-3 opacity-40" />{fmtTime(log.created_at)}
                                       </span>
                                       <span className="text-[var(--text-muted)]">{log.user_name || "未知"}</span>
                                     </div>
