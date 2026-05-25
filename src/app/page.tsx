@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { KeyRound, Mail, Clock, Copy, Check, RefreshCw, AlertCircle, Rocket, Users, Zap, ChevronDown, ChevronUp } from "lucide-react";
 import ParticleField from "@/components/ParticleField";
-import Earth3D from "@/components/Earth3D";
+
+const Earth3D = dynamic(() => import("@/components/Earth3D"), { ssr: false });
 
 interface EmailResult {
   emailId: number;
