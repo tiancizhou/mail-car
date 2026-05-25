@@ -39,8 +39,11 @@ export interface EmailItem {
 }
 
 function isWithinMinutes(isoTime: string, minutes: number): boolean {
-  const emailTime = new Date(isoTime.replace(" ", "T") + "Z").getTime();
-  return Date.now() - emailTime <= minutes * 60 * 1000;
+  const raw = isoTime.replace(" ", "T");
+  const emailTime = new Date(raw).getTime();
+  if (isNaN(emailTime)) return true;
+  const diff = Math.abs(Date.now() - emailTime);
+  return diff <= minutes * 60 * 1000;
 }
 
 async function doEmailList(toEmail: string, token: string): Promise<EmailItem[]> {
@@ -54,7 +57,7 @@ async function doEmailList(toEmail: string, token: string): Promise<EmailItem[]>
   return data.data || [];
 }
 
-export async function fetchEmails(toEmail: string, withinMinutes = 1): Promise<EmailItem[]> {
+export async function fetchEmails(toEmail: string, withinMinutes = 5): Promise<EmailItem[]> {
   const token = await getToken();
 
   try {
