@@ -1,0 +1,14 @@
+services:
+  mail-car:
+    build: .
+    ports:
+      - "3010:3010"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATA_DIR=/app/data
+      - ADMIN_PASSWORD=admin123
+      - EMAIL_API_BASE=https://qlcc.online
+      - EMAIL_ADMIN=qlc@qlcc.online
+      - EMAIL_PASSWORD=qq5201314
+    restart: unless-stopped
