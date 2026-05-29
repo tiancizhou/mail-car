@@ -10,11 +10,17 @@ export async function POST(req: NextRequest) {
   if (cdk.status !== "active") return NextResponse.json({ error: "CDK已被禁用" }, { status: 403 });
 
   const stats = getFetchStatsByAccount(cdk.account_id);
+  const currentUser = cdk.user_name || "未知用户";
+
+  const currentStat = stats.find((s) => s.user_name === currentUser);
+  const others = stats.filter((s) => s.user_name !== currentUser).slice(0, 2);
+  const visibleStats = currentStat ? [currentStat, ...others] : others.slice(0, 3);
+
   return NextResponse.json({
     data: {
       email: cdk.email,
-      currentUser: cdk.user_name || "未知用户",
-      stats,
+      currentUser,
+      stats: visibleStats,
     },
   });
 }
