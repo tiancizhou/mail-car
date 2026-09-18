@@ -70,6 +70,23 @@ interface ExpiringSoon {
 
 const PAGE_SIZE = 15;
 
+function formatInputDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function renewalDateAfterMonths(months: number) {
+  const today = new Date();
+  const targetMonth = today.getMonth() + months;
+  const lastDay = new Date(today.getFullYear(), targetMonth + 1, 0).getDate();
+  return formatInputDate(new Date(today.getFullYear(), targetMonth, Math.min(today.getDate(), lastDay)));
+}
+
+const renewalPresets = [
+  { label: "1 个月", months: 1 },
+  { label: "3 个月", months: 3 },
+  { label: "1 年", months: 12 },
+];
+
 function parseUtc(value: string | null | undefined) {
   if (!value) return null;
   return new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
@@ -108,6 +125,22 @@ function StatusPill({ active }: { active: boolean }) {
 function ExpiryCell({ value }: { value: string | null }) {
   const meta = expiryMeta(value);
   return <div className="expiry-cell"><span className={`expiry-badge expiry-badge--${meta.tone}`}>{meta.label}</span><span className="expiry-date">{value ? value.slice(0, 10) : meta.detail}</span>{value && <span className={`expiry-days expiry-days--${meta.tone}`}>{meta.detail}</span>}</div>;
+}
+
+function RenewalDatePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <fieldset className="renewal-picker">
+      <legend>续费日期</legend>
+      <div className="renewal-presets">
+        {renewalPresets.map((preset) => {
+          const date = renewalDateAfterMonths(preset.months);
+          return <button key={preset.months} type="button" className={value === date ? "is-selected" : ""} onClick={() => onChange(date)}><strong>{preset.label}</strong><small>{date.slice(5).replace("-", "/")}</small></button>;
+        })}
+        <button type="button" className={!value ? "is-selected" : ""} onClick={() => onChange("")}><strong>不设置</strong><small>稍后填写</small></button>
+      </div>
+      <label className="exact-date"><CalendarClock /><span>精确日期</span><input type="date" value={value} onChange={(event) => onChange(event.target.value)} /></label>
+    </fieldset>
+  );
 }
 
 export default function AdminPage() {
@@ -224,6 +257,11 @@ export default function AdminPage() {
     } catch (error) { setNotice(error instanceof Error ? error.message : "添加失败"); }
   }
 
+  function openAddForm() {
+    setNewForm((current) => ({ ...current, expiresAt: current.expiresAt || renewalDateAfterMonths(1) }));
+    setShowAdd(true);
+  }
+
   function startEdit(account: Account) {
     setEditingId(account.id);
     setEditForm({ email: account.email, note: account.note, expiresAt: account.expires_at?.slice(0, 10) || "", status: account.status });
@@ -277,7 +315,7 @@ export default function AdminPage() {
 
   return (
     <main className="fleet-console"><ParticleField /><div className="console-shell">
-      <header className="console-header"><div className="brand-block"><div className="brand-mark"><Car aria-hidden="true" /></div><div><p className="eyebrow">MAIL CAR · OPERATIONS</p><h1>车队控制台</h1></div></div><div className="header-actions"><button className="icon-button" onClick={() => refreshAll(true)} aria-label="刷新数据" title="刷新数据"><RefreshCw className={refreshing ? "spin" : ""} /></button><button className="primary-button" onClick={() => setShowAdd(true)}><Plus />新增车辆</button><button className="icon-button" onClick={() => setLoggedIn(false)} aria-label="退出登录" title="退出登录"><LogOut /></button></div></header>
+      <header className="console-header"><div className="brand-block"><div className="brand-mark"><Car aria-hidden="true" /></div><div><p className="eyebrow">MAIL CAR · OPERATIONS</p><h1>车队控制台</h1></div></div><div className="header-actions"><button className="icon-button" onClick={() => refreshAll(true)} aria-label="刷新数据" title="刷新数据"><RefreshCw className={refreshing ? "spin" : ""} /></button><button className="primary-button" onClick={openAddForm}><Plus />新增车辆</button><button className="icon-button" onClick={() => setLoggedIn(false)} aria-label="退出登录" title="退出登录"><LogOut /></button></div></header>
 
       <section className="overview-grid" aria-label="车队概览">
         <button className="metric-card" onClick={() => { setVehicleStatus("all"); setRiskFilter("all"); }}><span className="metric-icon metric-icon--cyan"><Car /></span><span className="metric-label">全部车辆</span><strong>{stats?.totalAccounts ?? "-"}</strong><small>{stats?.activeAccounts ?? 0} 启用 · {stats?.disabledAccounts ?? 0} 停用</small></button>
@@ -289,7 +327,7 @@ export default function AdminPage() {
 
       {expiring.length > 0 && <section className="expiry-strip"><div className="expiry-strip__title"><AlertTriangle /><span>续费提醒</span><b>{expiring.length}</b></div><div className="expiry-strip__items">{expiring.slice(0, 4).map((item) => <button key={item.id} onClick={() => { setSearch(item.email); setRiskFilter("all"); }}><span>{item.email}</span><b>{item.days_remaining < 0 ? `已过期 ${Math.abs(item.days_remaining)} 天` : `${item.days_remaining} 天后`}</b></button>)}</div>{expiring.length > 4 && <button className="text-button" onClick={() => setRiskFilter("30days")}>查看全部</button>}</section>}
 
-      {showAdd && <section className="form-panel"><div className="section-heading"><div><p className="eyebrow">NEW VEHICLE</p><h2>新增车辆</h2></div><button className="icon-button" onClick={() => setShowAdd(false)} aria-label="关闭"><X /></button></div><div className="form-grid"><label><span>邮箱账号 *</span><input type="email" value={newForm.email} onChange={(event) => setNewForm({ ...newForm, email: event.target.value })} placeholder="name@example.com" /></label><label><span>车辆备注</span><input value={newForm.note} onChange={(event) => setNewForm({ ...newForm, note: event.target.value })} placeholder="套餐、归属或用途" /></label><label><span>续费日期</span><input type="date" value={newForm.expiresAt} onChange={(event) => setNewForm({ ...newForm, expiresAt: event.target.value })} /></label><button className="primary-button form-submit" onClick={addAccount} disabled={!newForm.email.trim()}><Check />确认添加</button></div></section>}
+      {showAdd && <section className="form-panel"><div className="section-heading"><div><p className="eyebrow">NEW VEHICLE</p><h2>新增车辆</h2></div><button className="icon-button" onClick={() => setShowAdd(false)} aria-label="关闭"><X /></button></div><div className="form-grid"><label><span>邮箱账号 *</span><input type="email" value={newForm.email} onChange={(event) => setNewForm({ ...newForm, email: event.target.value })} placeholder="name@example.com" /></label><label><span>车辆备注</span><input value={newForm.note} onChange={(event) => setNewForm({ ...newForm, note: event.target.value })} placeholder="套餐、归属或用途" /></label><RenewalDatePicker value={newForm.expiresAt} onChange={(expiresAt) => setNewForm({ ...newForm, expiresAt })} /><button className="primary-button form-submit" onClick={addAccount} disabled={!newForm.email.trim()}><Check />确认添加</button></div></section>}
 
       <section className="fleet-section"><div className="section-heading list-heading"><div><p className="eyebrow">FLEET DIRECTORY</p><h2>车辆清单 <span>{filteredAccounts.length}</span></h2></div></div>
         <div className="filter-bar"><div className="search-box"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索邮箱、备注或车位码" />{search && <button onClick={() => setSearch("")} aria-label="清空搜索"><X /></button>}</div><div className="segmented" aria-label="车辆状态">{(["all", "active", "disabled"] as VehicleStatus[]).map((value) => <button key={value} className={vehicleStatus === value ? "is-active" : ""} onClick={() => setVehicleStatus(value)}>{value === "all" ? "全部车辆" : value === "active" ? "车辆启用" : "车辆停用"}</button>)}</div><select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as RiskFilter)} aria-label="到期筛选"><option value="all">全部到期状态</option><option value="7days">7 天内到期</option><option value="30days">30 天内到期</option><option value="expired">已过期</option><option value="unset">未设置日期</option></select><label className="check-filter"><input type="checkbox" checked={onlyDisabledSeats} onChange={(event) => setOnlyDisabledSeats(event.target.checked)} /><span><Ban />含禁用车位 {stats?.disabledCdks ? `(${stats.disabledCdks})` : ""}</span></label><select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)} aria-label="排序方式"><option value="expiry">按续费日期排序</option><option value="created">按创建时间排序</option><option value="recent">按最近使用排序</option><option value="fetches">按查询量排序</option></select></div>
@@ -301,7 +339,7 @@ export default function AdminPage() {
             const expanded = expandedId === account.id;
             return <article key={account.id} className={`vehicle-record ${account.status === "disabled" ? "vehicle-record--disabled" : ""}`}>
               <div className="vehicle-row"><button className="expand-button" onClick={() => expandAccount(account.id)} aria-label={expanded ? "收起车位" : "展开车位"}><ChevronDown className={expanded ? "is-open" : ""} /></button><div className="vehicle-identity" onClick={() => expandAccount(account.id)}><div className="vehicle-avatar"><Car /></div><div><strong>{account.email}</strong><span>{account.note || "暂无备注"}</span></div></div><div data-label="车辆状态"><StatusPill active={account.status === "active"} /></div><div className="seat-counts" data-label="车位"><strong>{account.total_cdks}</strong><span>{account.active_cdks} 启用</span>{account.disabled_cdks > 0 && <b>{account.disabled_cdks} 禁用</b>}</div><div data-label="续费状态"><ExpiryCell value={account.expires_at} /></div><div className="usage-cell" data-label="使用情况"><strong><Zap />{account.total_fetches} 次</strong><span>最近 {formatTime(account.last_used_at)}</span></div><div className="row-actions"><button onClick={() => startEdit(account)} aria-label="编辑车辆" title="编辑车辆"><Edit3 /></button><button onClick={() => toggleAccount(account)} aria-label={account.status === "active" ? "停用车辆" : "启用车辆"} title={account.status === "active" ? "停用车辆" : "启用车辆"}>{account.status === "active" ? <Ban /> : <CheckCircle2 />}</button><button className="danger-action" onClick={() => deleteAccount(account)} aria-label="删除车辆" title="删除车辆"><Trash2 /></button></div></div>
-              {editingId === account.id && <div className="inline-editor"><label><span>邮箱账号</span><input type="email" value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} /></label><label><span>备注</span><input value={editForm.note} onChange={(event) => setEditForm({ ...editForm, note: event.target.value })} /></label><label><span>续费日期</span><input type="date" value={editForm.expiresAt} onChange={(event) => setEditForm({ ...editForm, expiresAt: event.target.value })} /></label><label><span>车辆状态</span><select value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value })}><option value="active">启用</option><option value="disabled">停用</option></select></label><div className="editor-actions"><button className="primary-button" onClick={() => saveEdit(account)}><Check />保存</button><button className="secondary-button" onClick={() => setEditingId(null)}>取消</button></div></div>}
+              {editingId === account.id && <div className="inline-editor"><label><span>邮箱账号</span><input type="email" value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} /></label><label><span>备注</span><input value={editForm.note} onChange={(event) => setEditForm({ ...editForm, note: event.target.value })} /></label><RenewalDatePicker value={editForm.expiresAt} onChange={(expiresAt) => setEditForm({ ...editForm, expiresAt })} /><label><span>车辆状态</span><select value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value })}><option value="active">启用</option><option value="disabled">停用</option></select></label><div className="editor-actions"><button className="primary-button" onClick={() => saveEdit(account)}><Check />保存</button><button className="secondary-button" onClick={() => setEditingId(null)}>取消</button></div></div>}
               {expanded && <div className="seat-drawer"><div className="seat-drawer__head"><div><CircleParking /><strong>车位明细</strong><span>{account.total_cdks} 个</span></div><button className="secondary-button" onClick={() => mutateCdk("POST", { accountId: account.id }, account.id)}><Plus />新增车位</button></div>{cdksLoading ? <div className="seat-loading"><Loader2 className="spin" />加载车位中</div> : cdks.length === 0 ? <div className="seat-empty">暂时没有车位</div> : <div className="seat-grid">{cdks.map((cdk) => <div className={`seat-card ${cdk.status === "disabled" ? "seat-card--disabled" : ""}`} key={cdk.id}><div className="seat-card__top"><button className="code-button" onClick={() => copyCode(cdk.code)}><Clipboard />{cdk.code}{copiedCode === cdk.code ? <Check /> : <Copy />}</button><StatusPill active={cdk.status === "active"} /></div>{editingCdkId === cdk.id ? <div className="seat-name-edit"><input autoFocus value={editCdkName} onChange={(event) => setEditCdkName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && mutateCdk("PATCH", { id: cdk.id, userName: editCdkName }, account.id).then(() => setEditingCdkId(null))} /><button onClick={() => mutateCdk("PATCH", { id: cdk.id, userName: editCdkName }, account.id).then(() => setEditingCdkId(null))}><Check /></button></div> : <button className="seat-user" onClick={() => { setEditingCdkId(cdk.id); setEditCdkName(cdk.user_name); }}><UserRound />{cdk.user_name || "未绑定用户"}<Edit3 /></button>}<div className="seat-meta"><span><Zap />{cdk.fetch_count} 次查询</span><span><Clock3 />{cdk.last_used_at ? formatTime(cdk.last_used_at) : "从未使用"}</span></div><div className="seat-actions"><button onClick={() => mutateCdk("PATCH", { id: cdk.id, status: cdk.status === "active" ? "disabled" : "active" }, account.id)}>{cdk.status === "active" ? <><Ban />禁用</> : <><CheckCircle2 />启用</>}</button><button className="danger-action" onClick={() => window.confirm(`确定删除车位 ${cdk.code}？`) && mutateCdk("DELETE", { id: cdk.id }, account.id)}><Trash2 />删除</button></div></div>)}</div>}</div>}
             </article>;
           })}
