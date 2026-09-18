@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCdkByCode, addFetchLog } from "@/lib/db";
+import { getCdkByCode, addFetchLog, updateCdkLastUsed } from "@/lib/db";
 import { fetchEmails } from "@/lib/email-api";
 import { extractVerificationCodes } from "@/lib/extract-code";
 
@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
 
     if (emails.length > 0) {
       addFetchLog(cdk.account_id, cdk.id, cdk.user_name);
+      updateCdkLastUsed(cdk.id);
     }
 
     const results = emails.map((email) => {

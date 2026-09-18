@@ -26,6 +26,7 @@ export function getDb() {
         account_id INTEGER NOT NULL,
         user_name TEXT DEFAULT '',
         status TEXT NOT NULL DEFAULT 'active',
+        last_used_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
       );
@@ -59,6 +60,7 @@ export interface Cdk {
   account_id: number;
   user_name: string;
   status: string;
+  last_used_at: string | null;
   created_at: string;
 }
 
@@ -146,4 +148,117 @@ export function getFetchLogsByAccount(accountId: number, limit = 50): FetchLog[]
 }
 export function getFetchLogsByCdk(cdkId: number, limit = 20): FetchLog[] {
   return getDb().prepare("SELECT * FROM fetch_logs WHERE cdk_id = ? ORDER BY created_at DESC LIMIT ?").all(cdkId, limit) as FetchLog[];
+}
+
+// ---- Statistics ----
+export interface DashboardStats {
+  totalAccounts: number;
+  totalCdks: number;
+  activeCdks: number;
+  disabledCdks: number;
+  todayFetches: number;
+  weekFetches: number;
+  monthFetches: number;
+  unusedCdks: number;
+}
+
+export function getDashboardStats(): DashboardStats {
+  const db = getDb();
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const monthStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const totalAccounts = db.prepare("SELECT COUNT(*) as count FROM accounts WHERE status = 'active'").get() as { count: number };
+  const totalCdks = db.prepare("SELECT COUNT(*) as count FROM cdks").get() as { count: number };
+  const activeCdks = db.prepare("SELECT COUNT(*) as count FROM cdks WHERE status = 'active'").get() as { count: number };
+  const disabledCdks = db.prepare("SELECT COUNT(*) as count FROM cdks WHERE status = 'disabled'").get() as { count: number };
+  const todayFetches = db.prepare("SELECT COUNT(*) as count FROM fetch_logs WHERE created_at >= ?").get(todayStart) as { count: number };
+  const weekFetches = db.prepare("SELECT COUNT(*) as count FROM fetch_logs WHERE created_at >= ?").get(weekStart) as { count: number };
+  const monthFetches = db.prepare("SELECT COUNT(*) as count FROM fetch_logs WHERE created_at >= ?").get(monthStart) as { count: number };
+  const unusedCdks = db.prepare("SELECT COUNT(*) as count FROM cdks WHERE id NOT IN (SELECT DISTINCT cdk_id FROM fetch_logs)").get() as { count: number };
+
+  return {
+    totalAccounts: totalAccounts.count,
+    totalCdks: totalCdks.count,
+    activeCdks: activeCdks.count,
+    disabledCdks: disabledCdks.count,
+    todayFetches: todayFetches.count,
+    weekFetches: weekFetches.count,
+    monthFetches: monthFetches.count,
+    unusedCdks: unusedCdks.count,
+  };
+}
+
+export interface TrendData {
+  date: string;
+  count: number;
+}
+
+export function getFetchTrend(days = 7): TrendData[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT DATE(created_at) as date, COUNT(*) as count
+    FROM fetch_logs
+    WHERE created_at >= datetime('now', '-${days} days')
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
+  `).all() as TrendData[];
+}
+
+export interface AccountUsage {
+  email: string;
+  total_cdks: number;
+  active_cdks: number;
+  total_fetches: number;
+  last_used: string | null;
+}
+
+export function getAccountUsage(): AccountUsage[] {
+  return getDb().prepare(`
+    SELECT
+      accounts.email,
+      COUNT(DISTINCT cdks.id) as total_cdks,
+      COUNT(DISTINCT CASE WHEN cdks.status = 'active' THEN cdks.id END) as active_cdks,
+      COUNT(fetch_logs.id) as total_fetches,
+      MAX(fetch_logs.created_at) as last_used
+    FROM accounts
+    LEFT JOIN cdks ON accounts.id = cdks.account_id
+    LEFT JOIN fetch_logs ON cdks.id = fetch_logs.cdk_id
+    WHERE accounts.status = 'active'
+    GROUP BY accounts.id
+    ORDER BY total_fetches DESC
+  `).all() as AccountUsage[];
+}
+
+export interface ExpiringSoon {
+  code: string;
+  email: string;
+  user_name: string;
+  last_used_at: string | null;
+  days_inactive: number;
+}
+
+export function getExpiringSoon(inactiveDays = 30): ExpiringSoon[] {
+  const db = getDb();
+  const cutoffDate = new Date(Date.now() - inactiveDays * 24 * 60 * 60 * 1000).toISOString();
+
+  return db.prepare(`
+    SELECT
+      cdks.code,
+      accounts.email,
+      cdks.user_name,
+      cdks.last_used_at,
+      CAST((julianday('now') - julianday(COALESCE(cdks.last_used_at, cdks.created_at))) AS INTEGER) as days_inactive
+    FROM cdks
+    JOIN accounts ON cdks.account_id = accounts.id
+    WHERE cdks.status = 'active'
+      AND (cdks.last_used_at IS NULL OR cdks.last_used_at < ?)
+    ORDER BY days_inactive DESC
+    LIMIT 20
+  `).all(cutoffDate) as ExpiringSoon[];
+}
+
+export function updateCdkLastUsed(cdkId: number) {
+  return getDb().prepare("UPDATE cdks SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?").run(cdkId);
 }

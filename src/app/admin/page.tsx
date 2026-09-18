@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Lock, Plus, Trash2, Ban, CheckCircle, Copy, RefreshCw,
-  ChevronDown, ChevronRight, X, Edit3, Car, User, ParkingCircle, Zap, Clock
+  ChevronDown, ChevronRight, X, Edit3, Car, User, ParkingCircle, Zap, Clock,
+  TrendingUp, AlertTriangle, BarChart3, Search, Filter, Activity
 } from "lucide-react";
 import ParticleField from "@/components/ParticleField";
 
@@ -65,6 +66,25 @@ function CarIcon({ index }: { index: number }) {
   return <Car className={`w-6 h-6 ${carAccents[index % carAccents.length]}`} />;
 }
 
+interface DashboardStats {
+  totalAccounts: number;
+  totalCdks: number;
+  activeCdks: number;
+  disabledCdks: number;
+  todayFetches: number;
+  weekFetches: number;
+  monthFetches: number;
+  unusedCdks: number;
+}
+
+interface ExpiringSoon {
+  code: string;
+  email: string;
+  user_name: string;
+  last_used_at: string | null;
+  days_inactive: number;
+}
+
 export default function AdminPage() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [password, setPassword] = useState("");
@@ -87,12 +107,34 @@ export default function AdminPage() {
   const [logsCdkId, setLogsCdkId] = useState<number | null>(null);
   const [logs, setLogs] = useState<{ id: number; user_name: string; created_at: string }[]>([]);
 
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [expiring, setExpiring] = useState<ExpiringSoon[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "disabled">("all");
+
   const fetchAccounts = useCallback(async () => {
     const res = await fetch("/api/admin/account");
     if (res.ok) { const data = await res.json(); setAccounts(data.data); }
   }, []);
 
-  useEffect(() => { if (loggedIn) fetchAccounts(); }, [loggedIn, fetchAccounts]);
+  const fetchStats = useCallback(async () => {
+    const res = await fetch("/api/admin/stats?type=dashboard");
+    if (res.ok) { const data = await res.json(); setStats(data.data); }
+  }, []);
+
+  const fetchExpiring = useCallback(async () => {
+    const res = await fetch("/api/admin/stats?type=expiring&days=30");
+    if (res.ok) { const data = await res.json(); setExpiring(data.data); }
+  }, []);
+
+  useEffect(() => {
+    if (loggedIn) {
+      fetchAccounts();
+      fetchStats();
+      fetchExpiring();
+    }
+  }, [loggedIn, fetchAccounts, fetchStats, fetchExpiring]);
 
   const fetchCdks = useCallback(async (accountId: number) => {
     const res = await fetch(`/api/admin/cdk?accountId=${accountId}`);
@@ -240,10 +282,124 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={fetchAccounts} className="p-2 text-[var(--text-muted)] hover:text-[var(--neon-cyan)] rounded-lg transition-all">
+            <button
+              onClick={() => setShowDashboard(!showDashboard)}
+              className={`p-2 rounded-lg transition-all ${showDashboard ? "text-[var(--neon-cyan)] bg-[rgba(0,240,255,0.1)]" : "text-[var(--text-muted)] hover:text-[var(--neon-cyan)]"}`}
+            >
+              <BarChart3 className="w-4 h-4" />
+            </button>
+            <button onClick={() => { fetchAccounts(); fetchStats(); fetchExpiring(); }} className="p-2 text-[var(--text-muted)] hover:text-[var(--neon-cyan)] rounded-lg transition-all">
               <RefreshCw className="w-4 h-4" />
             </button>
             <button onClick={() => setLoggedIn(false)} className="px-4 py-2 text-[var(--text-muted)] hover:text-white glass rounded-xl text-sm transition-all">退出</button>
+          </div>
+        </div>
+
+        {/* Dashboard Stats */}
+        {showDashboard && stats && (
+          <div className="mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="glass rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Car className="w-4 h-4 text-[var(--neon-cyan)]" />
+                  <span className="text-xs text-[var(--text-muted)]">总车辆</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{stats.totalAccounts}</p>
+              </div>
+              <div className="glass rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <ParkingCircle className="w-4 h-4 text-[var(--neon-lime)]" />
+                  <span className="text-xs text-[var(--text-muted)]">总车位</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{stats.totalCdks}</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  启用 {stats.activeCdks} / 禁用 {stats.disabledCdks}
+                </p>
+              </div>
+              <div className="glass rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="w-4 h-4 text-[var(--neon-magenta)]" />
+                  <span className="text-xs text-[var(--text-muted)]">今日查询</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{stats.todayFetches}</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  本周 {stats.weekFetches} / 本月 {stats.monthFetches}
+                </p>
+              </div>
+              <div className="glass rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs text-[var(--text-muted)]">未使用</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{stats.unusedCdks}</p>
+              </div>
+            </div>
+
+            {expiring.length > 0 && (
+              <div className="glass rounded-xl p-4">
+                <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  长期未使用车位 (30天+)
+                </h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {expiring.slice(0, 10).map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs p-2 rounded-lg bg-white/[.02] border border-[var(--glass-border)]">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="font-mono text-[var(--neon-cyan)]">{item.code}</span>
+                        <span className="text-[var(--text-muted)] truncate">{item.email}</span>
+                        {item.user_name && <span className="text-[var(--text-muted)] opacity-60">({item.user_name})</span>}
+                      </div>
+                      <span className="text-amber-400 shrink-0">{item.days_inactive}天未用</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Search and Filter */}
+        <div className="flex flex-wrap gap-3 mb-6">
+          <div className="flex-1 min-w-[200px] relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="搜索邮箱、备注、车位码..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm input-dark"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFilterStatus("all")}
+              className={`px-4 py-2.5 rounded-xl text-sm transition-all ${
+                filterStatus === "all"
+                  ? "bg-[rgba(0,240,255,0.1)] border border-[rgba(0,240,255,0.3)] text-[var(--neon-cyan)]"
+                  : "glass text-[var(--text-muted)] hover:text-white"
+              }`}
+            >
+              全部
+            </button>
+            <button
+              onClick={() => setFilterStatus("active")}
+              className={`px-4 py-2.5 rounded-xl text-sm transition-all ${
+                filterStatus === "active"
+                  ? "bg-[rgba(184,255,0,0.1)] border border-[rgba(184,255,0,0.3)] text-[var(--neon-lime)]"
+                  : "glass text-[var(--text-muted)] hover:text-white"
+              }`}
+            >
+              启用
+            </button>
+            <button
+              onClick={() => setFilterStatus("disabled")}
+              className={`px-4 py-2.5 rounded-xl text-sm transition-all ${
+                filterStatus === "disabled"
+                  ? "bg-[rgba(255,45,120,0.1)] border border-[rgba(255,45,120,0.3)] text-[var(--neon-magenta)]"
+                  : "glass text-[var(--text-muted)] hover:text-white"
+              }`}
+            >
+              禁用
+            </button>
           </div>
         </div>
 
@@ -270,14 +426,32 @@ export default function AdminPage() {
         )}
 
         {/* Car List */}
-        {accounts.length === 0 ? (
-          <div className="py-16 text-center">
-            <Car className="w-12 h-12 text-[var(--text-muted)] opacity-20 mx-auto mb-3" />
-            <p className="text-[var(--text-muted)]">车库空空如也，添加第一辆车吧</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {accounts.map((account, idx) => {
+        {(() => {
+          const filteredAccounts = accounts.filter((account) => {
+            const matchesSearch =
+              !searchTerm ||
+              account.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              account.note.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesFilter =
+              filterStatus === "all" ||
+              account.status === filterStatus;
+            return matchesSearch && matchesFilter;
+          });
+
+          if (filteredAccounts.length === 0) {
+            return (
+              <div className="py-16 text-center">
+                <Car className="w-12 h-12 text-[var(--text-muted)] opacity-20 mx-auto mb-3" />
+                <p className="text-[var(--text-muted)]">
+                  {accounts.length === 0 ? "车库空空如也，添加第一辆车吧" : "没有找到匹配的车辆"}
+                </p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-4">
+              {filteredAccounts.map((account, idx) => {
               const isExpanded = expandedId === account.id;
               const isEditing = editingAccountId === account.id;
               const isDisabled = account.status === "disabled";
@@ -412,7 +586,8 @@ export default function AdminPage() {
               );
             })}
           </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
