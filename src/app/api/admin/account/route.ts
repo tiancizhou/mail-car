@@ -15,12 +15,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
-  const { email, password, note } = await req.json();
+  const { email, password, note, expiresAt } = await req.json();
   if (!email) {
     return NextResponse.json({ error: "邮箱不能为空" }, { status: 400 });
   }
 
-  createAccount(email, password, note);
+  createAccount(email, password, note, expiresAt);
   return NextResponse.json({ success: true });
 }
 
@@ -29,8 +29,8 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
-  const { id, email, password, note, status } = await req.json();
-  updateAccount(id, email, password || "", note || "", status);
+  const { id, email, password, note, status, expiresAt } = await req.json();
+  updateAccount(id, email, password || "", note || "", status, expiresAt);
   return NextResponse.json({ success: true });
 }
 
