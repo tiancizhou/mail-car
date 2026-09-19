@@ -68,6 +68,11 @@ export function getDb() {
       db.exec("ALTER TABLE accounts ADD COLUMN expires_at DATE");
     }
 
+    const cdkColumns = db.prepare("PRAGMA table_info(cdks)").all() as { name: string }[];
+    if (!cdkColumns.some((column) => column.name === "last_used_at")) {
+      db.exec("ALTER TABLE cdks ADD COLUMN last_used_at DATETIME");
+    }
+
     const legacyAccounts = db.prepare("SELECT id, note FROM accounts WHERE expires_at IS NULL AND note != ''").all() as { id: number; note: string }[];
     const backfillExpiry = db.prepare("UPDATE accounts SET expires_at = ? WHERE id = ? AND expires_at IS NULL");
     const migrateLegacyNotes = db.transaction(() => {

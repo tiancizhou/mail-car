@@ -38,14 +38,6 @@ export interface EmailItem {
   isDel: number;
 }
 
-function isWithinMinutes(isoTime: string, minutes: number): boolean {
-  const raw = isoTime.replace(" ", "T");
-  const emailTime = new Date(raw).getTime();
-  if (isNaN(emailTime)) return true;
-  const diff = Math.abs(Date.now() - emailTime);
-  return diff <= minutes * 60 * 1000;
-}
-
 function toChinaTime(utcTime: string): string {
   const d = new Date(utcTime.replace(" ", "T"));
   if (isNaN(d.getTime())) return utcTime;

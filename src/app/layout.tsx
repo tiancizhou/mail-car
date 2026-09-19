@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mail Car - 验证码查询",
-  description: "通过 CDK 获取邮箱验证码",
+  title: "验证码查看",
+  description: "通过访问密钥安全查看验证码",
 };
 
 export default function RootLayout({

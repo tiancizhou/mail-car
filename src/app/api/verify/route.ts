@@ -5,11 +5,11 @@ import { extractVerificationCodes } from "@/lib/extract-code";
 
 export async function POST(req: NextRequest) {
   const { code } = await req.json();
-  if (!code) return NextResponse.json({ error: "CDK不能为空" }, { status: 400 });
+  if (!code) return NextResponse.json({ error: "请输入访问密钥" }, { status: 400 });
 
   const cdk = getCdkByCode(code.trim().toUpperCase());
-  if (!cdk) return NextResponse.json({ error: "CDK不存在" }, { status: 404 });
-  if (cdk.status !== "active") return NextResponse.json({ error: "CDK已被禁用" }, { status: 403 });
+  if (!cdk) return NextResponse.json({ error: "访问密钥无效" }, { status: 404 });
+  if (cdk.status !== "active") return NextResponse.json({ error: "访问密钥已停用" }, { status: 403 });
 
   try {
     const emails = await fetchEmails(cdk.email);
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       data: { email: cdk.email, userName: cdk.user_name, emails: results },
     });
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "查询邮件失败";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[verify] fetch failed", e);
+    return NextResponse.json({ error: "验证码获取失败，请稍后重试" }, { status: 500 });
   }
 }
