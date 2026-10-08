@@ -1,18 +1,24 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { AlertCircle, Check, Clock3, Copy, KeyRound, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
+import { useCallback, useState } from "react";
+import { AlertCircle, Clock3, KeyRound, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 
 interface EmailResult {
   emailId: number;
   time: string;
-  codes: { code: string; source: string }[];
+  subject: string;
+  from: string;
+  text: string;
+  html: string;
 }
 
-interface CodeResult {
-  id: string;
-  code: string;
-  time: string;
+function EmailBody({ email }: { email: EmailResult }) {
+  if (!email.html?.trim()) {
+    return <pre className="email-text">{email.text || "这封邮件没有正文"}</pre>;
+  }
+  // Isolate untrusted email markup and block scripts, forms, and remote tracking.
+  const document = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:16px;color:#18251f;background:white;overflow-wrap:anywhere;font-family:system-ui,sans-serif}img{max-width:100%;height:auto}pre{white-space:pre-wrap}</style></head><body>${email.html}</body></html>`;
+  return <iframe className="email-frame" title={`邮件正文：${email.subject || "无主题"}`} sandbox="" referrerPolicy="no-referrer" srcDoc={document} />;
 }
 
 export default function Home() {
@@ -21,21 +27,6 @@ export default function Home() {
   const [queried, setQueried] = useState(false);
   const [error, setError] = useState("");
   const [emails, setEmails] = useState<EmailResult[]>([]);
-  const [copiedCode, setCopiedCode] = useState("");
-
-  const results = useMemo<CodeResult[]>(() => {
-    const seen = new Set<string>();
-    return emails.flatMap((item) => item.codes.map((entry, index) => ({
-      id: `${item.emailId}-${index}`,
-      code: entry.code,
-      time: item.time,
-    }))).filter((item) => {
-      if (seen.has(item.code)) return false;
-      seen.add(item.code);
-      return true;
-    });
-  }, [emails]);
-
   const fetchCode = useCallback(async () => {
     const key = accessKey.trim().toUpperCase();
     if (!key || loading) return;
@@ -66,25 +57,6 @@ export default function Home() {
     }
   }, [accessKey, loading]);
 
-  async function copyCode(code: string) {
-    try {
-      await navigator.clipboard.writeText(code);
-    } catch {
-      const textarea = document.createElement("textarea");
-      textarea.value = code;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      textarea.remove();
-    }
-    setCopiedCode(code);
-    window.setTimeout(() => setCopiedCode(""), 1800);
-  }
-
-  const latest = results[0];
-
   return (
     <main className="access-page">
       <div className="access-shell">
@@ -96,7 +68,7 @@ export default function Home() {
         <section className="access-intro">
           <span className="access-eyebrow">SECURE CODE ACCESS</span>
           <h1>输入密钥<br />查看验证码</h1>
-          <p>无需登录。验证密钥后，即可查看最新结果。</p>
+          <p>验证密钥后查看邮件原文，请在邮件中查找验证码。</p>
         </section>
 
         <section className="access-panel">
@@ -131,31 +103,24 @@ export default function Home() {
 
         {queried && (
           <section className="result-section" aria-live="polite">
-            {latest ? (
+            {emails.length > 0 ? (
               <>
-                <div className="result-heading"><span>最新验证码</span><small><Clock3 />{latest.time}</small></div>
-                <button className="hero-code" onClick={() => copyCode(latest.code)} aria-label={`复制验证码 ${latest.code}`}>
-                  <strong>{latest.code}</strong>
-                  <span>{copiedCode === latest.code ? <><Check />已复制</> : <><Copy />点击复制</>}</span>
-                </button>
-
-                {results.length > 1 && (
-                  <div className="other-results">
-                    <div className="other-results__title"><span>其他结果</span><small>{results.length - 1} 条</small></div>
-                    {results.slice(1).map((item) => (
-                      <button key={item.id} onClick={() => copyCode(item.code)}>
-                        <strong>{item.code}</strong>
-                        <span><Clock3 />{item.time}</span>
-                        {copiedCode === item.code ? <Check /> : <Copy />}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div className="result-heading"><span>邮件原文</span><small>{emails.length} 封邮件</small></div>
+                {emails.map((email, index) => (
+                  <details className="email-card" key={email.emailId} open={index === 0}>
+                    <summary>
+                      <span className="email-card__heading"><span className="email-card__label">{index === 0 ? "最新邮件" : "较早邮件"}</span><strong>{email.subject || "无主题"}</strong></span>
+                      <span className="email-card__time"><Clock3 />{email.time}</span>
+                    </summary>
+                    <div className="email-card__sender">发件人：{email.from || "未知发件人"}</div>
+                    <EmailBody email={email} />
+                  </details>
+                ))}
               </>
             ) : (
               <div className="access-empty">
                 <Clock3 />
-                <strong>暂时没有验证码</strong>
+                <strong>暂时没有邮件</strong>
                 <span>请稍后点击刷新重试</span>
               </div>
             )}

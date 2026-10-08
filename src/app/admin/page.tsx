@@ -11,7 +11,7 @@ import ParticleField from "@/components/ParticleField";
 
 type VehicleStatus = "all" | "active" | "disabled";
 type RiskFilter = "all" | "7days" | "30days" | "expired" | "unset";
-type SortBy = "expiry" | "created" | "fetches" | "recent";
+type SortBy = "expiry" | "expiry-desc" | "created" | "fetches" | "recent";
 type DateField = "created" | "expiry";
 
 interface Account {
@@ -224,9 +224,12 @@ export default function AdminPage() {
       if (sortBy === "fetches") return b.total_fetches - a.total_fetches;
       if (sortBy === "created") return parseUtc(b.created_at)!.getTime() - parseUtc(a.created_at)!.getTime();
       if (sortBy === "recent") return (parseUtc(b.last_used_at)?.getTime() || 0) - (parseUtc(a.last_used_at)?.getTime() || 0);
+      if (!a.expires_at && !b.expires_at) return 0;
       if (!a.expires_at) return 1;
       if (!b.expires_at) return -1;
-      return a.expires_at.localeCompare(b.expires_at);
+      return sortBy === "expiry-desc"
+        ? b.expires_at.localeCompare(a.expires_at)
+        : a.expires_at.localeCompare(b.expires_at);
     });
   }, [accounts, search, vehicleStatus, riskFilter, onlyDisabledSeats, sortBy, dateField, dateFrom, dateTo]);
 
@@ -330,7 +333,7 @@ export default function AdminPage() {
       {showAdd && <section className="form-panel"><div className="section-heading"><div><p className="eyebrow">NEW VEHICLE</p><h2>新增车辆</h2></div><button className="icon-button" onClick={() => setShowAdd(false)} aria-label="关闭"><X /></button></div><div className="form-grid"><label><span>邮箱账号 *</span><input type="email" value={newForm.email} onChange={(event) => setNewForm({ ...newForm, email: event.target.value })} placeholder="name@example.com" /></label><label><span>车辆备注</span><input value={newForm.note} onChange={(event) => setNewForm({ ...newForm, note: event.target.value })} placeholder="套餐、归属或用途" /></label><RenewalDatePicker value={newForm.expiresAt} onChange={(expiresAt) => setNewForm({ ...newForm, expiresAt })} /><button className="primary-button form-submit" onClick={addAccount} disabled={!newForm.email.trim()}><Check />确认添加</button></div></section>}
 
       <section className="fleet-section"><div className="section-heading list-heading"><div><p className="eyebrow">FLEET DIRECTORY</p><h2>车辆清单 <span>{filteredAccounts.length}</span></h2></div></div>
-        <div className="filter-bar"><div className="search-box"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索邮箱、备注或车位码" />{search && <button onClick={() => setSearch("")} aria-label="清空搜索"><X /></button>}</div><div className="segmented" aria-label="车辆状态">{(["all", "active", "disabled"] as VehicleStatus[]).map((value) => <button key={value} className={vehicleStatus === value ? "is-active" : ""} onClick={() => setVehicleStatus(value)}>{value === "all" ? "全部车辆" : value === "active" ? "车辆启用" : "车辆停用"}</button>)}</div><select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as RiskFilter)} aria-label="到期筛选"><option value="all">全部到期状态</option><option value="7days">7 天内到期</option><option value="30days">30 天内到期</option><option value="expired">已过期</option><option value="unset">未设置日期</option></select><label className="check-filter"><input type="checkbox" checked={onlyDisabledSeats} onChange={(event) => setOnlyDisabledSeats(event.target.checked)} /><span><Ban />含禁用车位 {stats?.disabledCdks ? `(${stats.disabledCdks})` : ""}</span></label><select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)} aria-label="排序方式"><option value="expiry">按续费日期排序</option><option value="created">按创建时间排序</option><option value="recent">按最近使用排序</option><option value="fetches">按查询量排序</option></select></div>
+        <div className="filter-bar"><div className="search-box"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索邮箱、备注或车位码" />{search && <button onClick={() => setSearch("")} aria-label="清空搜索"><X /></button>}</div><div className="segmented" aria-label="车辆状态">{(["all", "active", "disabled"] as VehicleStatus[]).map((value) => <button key={value} className={vehicleStatus === value ? "is-active" : ""} onClick={() => setVehicleStatus(value)}>{value === "all" ? "全部车辆" : value === "active" ? "车辆启用" : "车辆停用"}</button>)}</div><select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as RiskFilter)} aria-label="到期筛选"><option value="all">全部到期状态</option><option value="7days">7 天内到期</option><option value="30days">30 天内到期</option><option value="expired">已过期</option><option value="unset">未设置日期</option></select><label className="check-filter"><input type="checkbox" checked={onlyDisabledSeats} onChange={(event) => setOnlyDisabledSeats(event.target.checked)} /><span><Ban />含禁用车位 {stats?.disabledCdks ? `(${stats.disabledCdks})` : ""}</span></label><select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)} aria-label="排序方式"><option value="expiry">续费日期升序（近到远）</option><option value="expiry-desc">续费日期倒序（远到近）</option><option value="created">按创建时间排序</option><option value="recent">按最近使用排序</option><option value="fetches">按查询量排序</option></select></div>
         <div className="date-filter"><span className="date-filter__label"><CalendarClock />时间筛选</span><select value={dateField} onChange={(event) => setDateField(event.target.value as DateField)} aria-label="时间字段"><option value="created">创建时间</option><option value="expiry">续费日期（原备注时间）</option></select><label><span>从</span><input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label><span>至</span><input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label>{(dateFrom || dateTo) && <button onClick={() => { setDateFrom(""); setDateTo(""); }}>清除日期</button>}</div>
         <div className="filter-summary"><span>显示 {filteredAccounts.length} / {accounts.length} 辆</span>{(vehicleStatus !== "all" || riskFilter !== "all" || onlyDisabledSeats || search || dateFrom || dateTo) && <button onClick={() => { setSearch(""); setVehicleStatus("all"); setRiskFilter("all"); setOnlyDisabledSeats(false); setDateFrom(""); setDateTo(""); }}>清除全部筛选</button>}</div>
 

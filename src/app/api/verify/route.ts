@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCdkByCode, addFetchLog, updateCdkLastUsed } from "@/lib/db";
 import { fetchEmails } from "@/lib/email-api";
-import { extractVerificationCodes } from "@/lib/extract-code";
 
 export async function POST(req: NextRequest) {
   const { code } = await req.json();
@@ -24,13 +23,11 @@ export async function POST(req: NextRequest) {
     }
 
     const results = emails.map((email) => {
-      const codes = extractVerificationCodes(email.content || "", email.text || "");
       return {
         emailId: email.emailId,
         subject: email.subject,
         from: email.sendEmail,
         time: email.createTime,
-        codes,
         text: email.text,
         html: email.content,
       };

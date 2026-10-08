@@ -874,6 +874,19 @@ body:has(.access-page).noise::before { display: none; }
 .access-error svg { flex: none; width: 17px; }
 
 .result-section { margin-top: 20px; }
+.email-card { margin-top: 12px; overflow: hidden; border: 1px solid var(--access-line); border-radius: 16px; background: #fff; }
+.email-card summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px; cursor: pointer; }
+.email-card summary::after { content: "+"; color: var(--access-accent); font-size: 20px; }
+.email-card[open] summary::after { content: "−"; }
+.email-card summary:focus-visible { outline: 2px solid var(--access-accent); outline-offset: -4px; }
+.email-card__heading { display: grid; flex: 1; min-width: 0; gap: 6px; }
+.email-card__heading strong { font-size: 15px; overflow-wrap: anywhere; }
+.email-card__label { font-size: 10px; color: var(--access-accent); font-weight: 700; }
+.email-card__time { display: flex; align-items: center; gap: 5px; color: var(--access-muted); font-size: 11px; }
+.email-card__time svg { width: 13px; height: 13px; }
+.email-card__sender { padding: 0 20px 16px; color: var(--access-muted); font-size: 12px; overflow-wrap: anywhere; }
+.email-frame { display: block; width: 100%; height: 520px; height: clamp(320px, 65vh, 680px); border: 0; border-top: 1px solid var(--access-line); background: #fff; }
+.email-text { margin: 0; padding: 20px; border-top: 1px solid var(--access-line); white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 14px; line-height: 1.8; user-select: text; }
 .result-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; padding: 0 3px; }
 .result-heading > span { font-size: 12px; font-weight: 750; }
 .result-heading > small { display: flex; align-items: center; gap: 5px; color: var(--access-muted); font-size: 10px; }

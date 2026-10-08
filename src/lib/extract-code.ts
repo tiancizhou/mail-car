@@ -1,75 +1,58 @@
-export interface ExtractedCode {
+﻿export interface ExtractedCode {
   code: string;
   source: string;
+}
+
+// Ignore markup and non-visible content before looking for a code.
+function visibleText(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&#(x[\da-f]+|\d+);/gi, (entity, value: string) => {
+      const point = value[0].toLowerCase() === "x"
+        ? parseInt(value.slice(1), 16) : parseInt(value, 10);
+      return point <= 0x10ffff ? String.fromCodePoint(point) : entity;
+    })
+    .replace(/&(?:nbsp|ensp|emsp);/gi, " ")
+    .replace(/&colon;/gi, ":");
 }
 
 export function extractVerificationCodes(html: string, text: string): ExtractedCode[] {
   const results: ExtractedCode[] = [];
   const seen = new Set<string>();
-  const content = `${html} ${text}`;
+  const contents = [visibleText(html), text];
 
   const add = (code: string, source: string) => {
-    if (!seen.has(code) && code.length >= 4 && code.length <= 8) {
+    // Reject ordinary English words; accept numeric and mixed alphanumeric codes.
+    if (/^[a-zA-Z0-9]{4,8}$/.test(code) && /\d/.test(code) && !seen.has(code)) {
       seen.add(code);
       results.push({ code, source });
     }
   };
 
-  // 1. Label-then-code patterns (handles various separators)
-  const labelPatterns = [
-    /验证码[：:\s]*[a-zA-Z0-9]{4,8}/gi,
-    /校验码[：:\s]*[a-zA-Z0-9]{4,8}/gi,
-    /verification\s*code[\s：:]*[a-zA-Z0-9]{4,8}/gi,
-    /verify[\s-]*code[\s：:]*[a-zA-Z0-9]{4,8}/gi,
-    /your\s+code[\s：:]*[a-zA-Z0-9]{4,8}/gi,
-    /code\s*(?:is|:)[：\s]*[a-zA-Z0-9]{4,8}/gi,
-    /login\s*code[\s：:]*[a-zA-Z0-9]{4,8}/gi,
-    /OTP[：:\s]*[a-zA-Z0-9]{4,8}/gi,
-    /PIN[：:\s]*[a-zA-Z0-9]{4,8}/gi,
-    /passcode[：:\s]*[a-zA-Z0-9]{4,8}/gi,
-    /临时.*?代码[：:\s]*[a-zA-Z0-9]{4,8}/gi,
-    /temporary.*?code[\s：:]*[a-zA-Z0-9]{4,8}/gi,
-  ];
-
-  for (const regex of labelPatterns) {
-    for (const match of content.matchAll(regex)) {
-      const code = match[0].match(/[a-zA-Z0-9]{4,8}$/)?.[0];
-      if (code) add(code, "验证码提取");
-    }
+  // Capture only the token, never the label. Do not truncate longer identifiers.
+  const label = /(?:验证码|校验码|(?:临时\s*)?代码|\b(?:verification\s+code|verify[\s-]*code|your\s+code|login\s+code|temporary\s+code|security\s+code|one[ -]time\s+(?:code|password)|OTP|PIN|passcode|code)\b)\s*(?:(?:is\b|为|是)\s*)?[：:=\-]?\s*([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9_])/gi;
+  for (const content of contents) {
+    for (const match of content.matchAll(label)) add(match[1], "验证码提取");
   }
 
-  // 2. HTML-specific: code in large/styled font elements (OpenAI style)
+  const cleanHtml = html.replace(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ");
   const htmlPatterns = [
-    // font-size: 24-48px or letter-spacing in inline styles
-    /style="[^"]*font-size:\s*(?:2[4-9]|[3-4]\d|5[0-6])px[^"]*"[^>]*>\s*([A-Za-z0-9]{4,8})\s*</gi,
-    // letter-spacing common in code display
-    /style="[^"]*letter-spacing[^"]*"[^>]*>\s*([A-Za-z0-9]{4,8})\s*</gi,
-    // Code in <code> or <pre> tags
-    /<(?:code|pre)[^>]*>\s*([A-Za-z0-9]{4,8})\s*</gi,
-    // Explicit code styling classes
-    /class="[^"]*(?:code|otp|verification|pin)[^"]*"[^>]*>\s*([A-Za-z0-9]{4,8})\s*</gi,
+    /style=["'][^"']*(?:font-size:\s*(?:2[4-9]|[3-4]\d|5[0-6])px|letter-spacing)[^"']*["'][^>]*>\s*([A-Za-z0-9]{4,8})\s*</gi,
+    /<(?:code|pre)\b[^>]*>\s*([A-Za-z0-9]{4,8})\s*</gi,
+    /class=["'][^"']*\b(?:code|otp|verification|pin)\b[^"']*["'][^>]*>\s*([A-Za-z0-9]{4,8})\s*</gi,
   ];
-
   for (const regex of htmlPatterns) {
-    for (const match of html.matchAll(regex)) {
-      if (match[1]) add(match[1], "HTML提取");
-    }
+    for (const match of cleanHtml.matchAll(regex)) add(match[1], "HTML提取");
   }
 
-  // 3. Standalone numbers in prominent positions (as last resort)
-  // Look for numbers that appear between HTML tags with significant whitespace
   if (results.length === 0) {
-    const standalonePatterns = [
-      />\s*(\d{6})\s*</g,
-      />\s*(\d{4})\s*</g,
-      /["'\s](\d{6})["'\s]/g,
-    ];
-    for (const regex of standalonePatterns) {
-      for (const match of content.matchAll(regex)) {
-        if (match[1]) add(match[1], "数字匹配");
+    for (const content of contents) {
+      for (const match of content.matchAll(/(?:^|\s)(\d{4,8})(?=\s|$|[，。,.!！;；])/g)) {
+        add(match[1], "数字匹配");
       }
     }
   }
-
   return results;
 }
